@@ -1,0 +1,28 @@
+[DEFAULT]
+# Below is used for sessions only
+[service_auth]
+auth_section = v3pass
+insecure = False
+
+[v3pass]
+# Use public endpoint for general daemon communication
+auth_url = https://openstack.bcpc.example.com:5000/v3
+auth_plugin = v3password
+auth_type = v3password
+username = daemon_user
+password = s0m3s3kret
+user_domain_name = Default
+project_name = service
+project_domain_name = Default
+
+[keystone_authtoken]
+debug=True
+log_level=debug
+service_token_roles = service
+auth_url = https://openstack.bcpc.example.com:35357/v3
+auth_type = password
+username = admin
+password = admin_pass
+user_domain_name = Default
+project_name = AdminTenant
+project_domain_name = Default
