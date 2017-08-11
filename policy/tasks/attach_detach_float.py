@@ -1,13 +1,22 @@
 #!/usr/bin/env python
+from collections import namedtuple
+from ka_auth import sess
 from ks_auth import ks
-from ks_auth import sess
 from ks_auth import trust_auth
 from ks_auth import utils
 from novaclient import client
 from novaclient import exceptions
+from pbr.version import SemanticVersion
+from pbr.version import VersionInfo
 from pprint import pprint
 from time import sleep
+import keystoneclient.exceptions
+import os
 import sys
+#try:
+#    import simplejson as json
+#except ImportError:
+#    import json
 # RDTIBCC-983
 # Satisfies Requirements:
 #  - attach a float
@@ -15,12 +24,36 @@ import sys
 
 # depends upon 'provisioner' role
 VERSION = '2'
+MAX_SEMVER = SemanticVersion(major=7, minor=1, patch=2)
 nova = client.Client(VERSION, session=sess)
 
-username = 'standard_user'
 search_opts = {
     'all_tenants': True
 }
+
+
+FloatingIp = namedtuple('FloatingIp', ['instance_id', 'ip', 'fixed_ip', 'id', 'pool'])
+def list_floating_ips():
+    semver = VersionInfo('python-novaclient').semantic_version()
+    if semver <= MAX_SEMVER:
+        nova.floating_ips.list()
+    else:
+        endpoint_filter = {
+            'service_type': 'compute',
+            'interface': 'public',
+            # TODO(kamidzi): may break??
+            'region_name': os.environ.get('OS_REGION'),
+        }
+        try:
+            #https://developer.openstack.org/api-ref/compute/#floating-ips-os-floating-ips-deprecated
+            resp = sess.get('/os-floating-ips',
+                            endpoint_filter=endpoint_filter)
+            obj = resp.json()
+            ips = map(lambda x: FloatingIp(**x), obj['floating_ips'])
+            return ips
+        except keystoneclient.exceptions.NotFound:
+            raise
+
 
 def poll_server(server, interval=2, limit=4, *args, **kwargs):
     for i in range(0, limit):
@@ -31,7 +64,7 @@ def poll_server(server, interval=2, limit=4, *args, **kwargs):
 def get_float_ip():
     """Attempts to acquire floating ip by first looking for existing
     unallocated, then creating."""
-    curr_list = nova.floating_ips.list()
+    curr_list = list_floating_ips()
     print(curr_list)
     def unallocated(ip):
         return (ip.instance_id == None == ip.fixed_ip )
