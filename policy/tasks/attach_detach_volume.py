@@ -15,7 +15,7 @@ VERSION = '2'
 
 def poll_volume(volume, interval=2, limit=4, *args, **kwargs):
     for i in range(0, limit):
-        yield nova.volumes.get(volume.id)
+        yield cinder.volumes.get(volume.id)
         sleep(interval)
 
 
