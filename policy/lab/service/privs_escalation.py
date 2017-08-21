@@ -2,6 +2,7 @@
 
 from keystoneauth1 import loading
 from keystoneauth1 import session
+import keystoneauth1.identity
 from keystoneclient import client as ks_client
 from keystonemiddleware import auth_token
 from oslo_config import cfg
@@ -18,7 +19,7 @@ loading.session.register_conf_options(cfg.CONF, 'communication')
 vars = filter(lambda x: x[0].startswith('OS_'), os.environ.iteritems())
 conf_keys = CONF.keys()
 for k, v in vars:
-# Try the full var first
+    # Try the full var first
     n = k.lower()
     cands = (n, n[3:])
     for var in cands:
@@ -42,11 +43,13 @@ except Exception, e:
 SESSION = session.Session(auth=auth)
 ADMIN_ROLE_NAME = u'Admin'
 
+
 def list_trusts(req):
     auth = req.environ['keystone.token_auth']
+    token_info = req.environ['keystone.token_info']
     ks = ks_client.Client('3', session=SESSION, auth=auth)
     user_id = ks.auth.client.get_user_id()
-    ret = {'auth': auth.user._data}
+    ret = {'auth': auth.user._data, 'token_info': token_info}
     if ADMIN_ROLE_NAME in auth.user.role_names:
         # exec some known admin op
         admin_data = [r.name for r in ks.roles.list()]
@@ -62,16 +65,29 @@ def list_trusts(req):
         ret.update(admin_ret)
     return ret
 
+
 @webob.dec.wsgify
 def app(req):
     resp = list_trusts(req)
     return webob.Response(json.dumps(resp))
+
+
+def render_auth(auth):
+    if isinstance(auth, keystoneauth1.identity.generic.password.Password):
+        ret = {
+            'project': auth._project_name,
+            'username': auth._username,
+        }
+        return ret
+
 
 PORT = 5150
 if __name__ == '__main__':
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
     logger = logging.getLogger(cfg.CONF.project)
 
-    app = auth_token.AuthProtocol(app,{})
+    app = auth_token.AuthProtocol(app, {})
+    print('App credentials: %s' % render_auth(app._auth))
+
     server = simple_server.make_server('', PORT, app)
     server.serve_forever()
