@@ -13,10 +13,17 @@ import sys
 
 VERSION = '2'
 
+class PollingLimitExceeded(Exception):
+    def __init__(self, limit=None, interval=2):
+        self.limit = limit
+        self.interval = interval
+
+
 def poll_volume(volume, interval=2, limit=4, *args, **kwargs):
     for i in range(0, limit):
         yield cinder.volumes.get(volume.id)
         sleep(interval)
+    raise PollingLimitExceeded(limit=limit, interval=interval)
 
 
 if __name__ == '__main__':
@@ -51,6 +58,7 @@ if __name__ == '__main__':
                 and hasattr(vol, 'os-vol-tenant-attr:tenant_id'):
                 break
         print(render_volume(vol))
+        sys.exit()
 
         try:
             args = {
