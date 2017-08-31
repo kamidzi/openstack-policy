@@ -47,6 +47,8 @@ ADMIN_ROLE_NAME = u'Admin'
 def list_trusts(req):
     auth = req.environ['keystone.token_auth']
     token_info = req.environ['keystone.token_info']
+    # NB(kamidzi): cannot use auth._session as auth._session.auth,
+    # required by Discovery, is None
     ks = ks_client.Client('3', session=SESSION, auth=auth)
     user_id = ks.auth.client.get_user_id()
     ret = {'auth': auth.user._data, 'token_info': token_info}
@@ -87,6 +89,7 @@ if __name__ == '__main__':
     logger = logging.getLogger(cfg.CONF.project)
 
     app = auth_token.AuthProtocol(app, {})
+    # See https://github.com/openstack/keystonemiddleware/blob/4.14.0/keystonemiddleware/auth_token/__init__.py#L663
     print('App credentials: %s' % render_auth(app._auth))
 
     server = simple_server.make_server('', PORT, app)
