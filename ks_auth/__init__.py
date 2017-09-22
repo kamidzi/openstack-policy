@@ -10,14 +10,29 @@ except ImportError:
     import json
 
 username = environ.get('OS_USERNAME')
+
+
+# Prefer domain admin to project-scoped admin
+# TODO(kamidzi): make this configurable
+domain_args =  {'domain_name': environ.get('OS_DOMAIN_NAME')}
+if domain_args['domain_name'] is None:
+    domain_args = {
+        'user_domain_name': environ.get('OS_USER_DOMAIN_NAME'),
+        'project_domain_name': environ.get('OS_PROJECT_DOMAIN_NAME'),
+    }
+
 auth_args = {
-    'user_domain_name': environ.get('OS_USER_DOMAIN_NAME'),
-    'project_domain_name': environ.get('OS_PROJECT_DOMAIN_NAME'),
-    'project_name': environ.get('OS_PROJECT_NAME',environ.get('OS_TENANT_NAME')),
+    'project_name': environ.get('OS_PROJECT_NAME', environ.get('OS_TENANT_NAME')),
     'auth_url': environ.get('OS_AUTH_URL'),
     'password': environ.get('OS_PASSWORD'),
     'username': username,
 }
+
+def purge_nulls(d):
+    return dict(filter(lambda x: x[1], d.items()))
+
+auth_args.update(domain_args)
+auth_args = purge_nulls(auth_args)
 
 plugin = v3.Password
 
