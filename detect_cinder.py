@@ -28,7 +28,7 @@ def _detect_cinder_api_version(interface='admin'):
     #   - cinderclient.api_versions
     _catalog_cls = ServiceCatalogV3
     ret = 0.0
-
+    ver_strip = re.compile(r'^v')
     try:
         catalog = sess.auth.auth_ref.service_catalog
         if not catalog:
@@ -93,11 +93,76 @@ def _detect_cinder_api_version(interface='admin'):
         #     }
         #   ]
         # }
-        current = list(filter(
-            lambda x: x.get('status') == 'CURRENT', verinfo.get('versions')
-        )).pop()
-        v = current.get('id')
-        ret = float(re.sub(r'^v', '', v))
+        #
+        # ---
+        #
+        # {
+        #    "versions" : {
+        #       "values" : [
+        #          {
+        #             "media-types" : [
+        #                {
+        #                   "type" : "application/vnd.openstack.identity-v3+json",
+        #                   "base" : "application/json"
+        #                }
+        #             ],
+        #             "links" : [
+        #                {
+        #                   "rel" : "self",
+        #                   "href" : "https://openstack.bcpc.example.com:35357/v3/"
+        #                }
+        #             ],
+        #             "status" : "stable",
+        #             "id" : "v3.6",
+        #             "updated" : "2016-04-04T00:00:00Z"
+        #          },
+        #          {
+        #             "updated" : "2014-04-17T00:00:00Z",
+        #             "links" : [
+        #                {
+        #                   "rel" : "self",
+        #                   "href" : "https://openstack.bcpc.example.com:35357/v2.0/"
+        #                },
+        #                {
+        #                   "type" : "text/html",
+        #                   "rel" : "describedby",
+        #                   "href" : "http://docs.openstack.org/"
+        #                }
+        #             ],
+        #             "media-types" : [
+        #                {
+        #                   "type" : "application/vnd.openstack.identity-v2.0+json",
+        #                   "base" : "application/json"
+        #                }
+        #             ],
+        #             "status" : "stable",
+        #             "id" : "v2.0"
+        #          }
+        #       ]
+        #    }
+        # }
+        versions = verinfo.get('versions')
+        if isinstance(versions, list):
+            current = list(filter(
+                lambda x: x.get('status') == 'CURRENT', versions
+            )).pop()
+            v = current.get('id')
+            ret = float(re.sub(r'^v', '', v))
+        elif isinstance(versions, dict):
+            versions = versions.get('values')
+            cands = list(filter(
+                lambda x: x.get('status') == 'stable', versions
+            ))
+
+            def _stable_key(x):
+                key = x.get('id')
+                if not key:
+                    return (None,)
+                return (ver_strip.sub('', key),)
+
+            current = max(cands, key=_stable_key)
+            v = current.get('id')
+            ret = float(re.sub(r'^v', '', v))
     except Exception as x:
         self.logger.debug(str(x))
         self.logger.error('Failed to auto-detect API version from url {}'
