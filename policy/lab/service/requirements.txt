@@ -1,5 +1,5 @@
 Babel==2.3.4
-PyYAML==3.12
+PyYAML==5.4
 Pygments==2.2.0
 WebOb==1.7.1
 appdirs==1.4.3
