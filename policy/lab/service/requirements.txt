@@ -55,7 +55,7 @@ rfc3986==1.0.0
 simplejson==3.10.0
 six==1.10.0
 stevedore==1.23.0
-ujson==1.35
+ujson==5.2.0
 unicodecsv==0.14.1
 urllib3==1.21.1
 warlock==1.2.0
